@@ -73,9 +73,21 @@ OpenCode 的插件机制**原生支持本地路径**，无需 `npm install`。�
 }
 ```
 
-```
+```bash
 npm install -g opencode-wecom-ping
 ```
+
+### 方式五：GitHub Release 资产（无需 npm 登录）
+
+每次发布都会同时上传一个 tarball 到 GitHub Releases，可直接从 URL 安装，**不依赖 npm 账号/token**：
+
+```bash
+npm install https://github.com/FountainChan/opencode-wecom-ping/releases/download/v1.0.2/opencode-wecom-ping-1.0.2.tar.gz
+```
+
+将 URL 中的版本号 `v1.0.2` 替换为最新发布版本即可（见 [Releases 页面](https://github.com/FountainChan/opencode-wecom-ping/releases)）。
+
+> 💡 npm registry 与 GitHub Release 双通道发布：安装方式可随时切换，GitHub 通道不受 npm token 有效期影响。
 
 ## ⚙️ 配置
 
@@ -188,6 +200,35 @@ node scripts/test-flow.js
 会话：数据分析任务
 Bash(git push --force)
 ```
+
+## 🚀 发布新版本
+
+发布流程由 GitHub Actions 自动完成，开发者只需两步：
+
+```bash
+# 1. 修改 package.json 中的 version（如 1.0.2 → 1.0.3）
+# 2. 提交并打 tag（tag 名 = v + 版本号）
+git commit -am "chore: bump 1.0.3"
+git push origin main
+git tag v1.0.3
+git push origin v1.0.3
+```
+
+推送 tag 后，workflow 会自动依次执行：
+
+1. **运行测试**（`npm test`，失败则中断）
+2. **检查 NPM_TOKEN 过期时间**（剩余 <14 天警告；<7 天或已过期则阻断发布并提示更新）
+3. **发布到 npm registry**（`npm publish`）
+4. **打包并上传 GitHub Release 资产**（`opencode-wecom-ping-<版本>.tar.gz`）
+
+发布产物双通道：
+
+| 通道 | 地址 | 依赖 |
+|---|---|---|
+| npm registry | `npm install opencode-wecom-ping` | npm token（有效期最长 90 天，需定期更新） |
+| GitHub Release | `npm install https://github.com/FountainChan/opencode-wecom-ping/releases/download/v1.0.2/opencode-wecom-ping-1.0.2.tar.gz` | 无（GitHub Actions 自动上传） |
+
+> ⚠️ npm 自 2026-02-03 起强制 granular token 最长 90 天有效期，无法创建长期 token。发布前 workflow 的过期检查会提前提醒；即使 token 失效，GitHub Release 通道仍可正常安装。
 
 ## 📄 License
 
