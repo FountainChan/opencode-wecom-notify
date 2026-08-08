@@ -1,0 +1,30 @@
+{
+  "name": "opencode-wecom-notify",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "OpenCode 插件：对话状态实时推送企业微信（回复完成 / 出错 / 权限请求）",
+  "main": "src/index.js",
+  "exports": {
+    ".": {
+      "import": "./src/index.js"
+    }
+  },
+  "files": [
+    "src/"
+  ],
+  "scripts": {
+    "test": "node --check src/index.js"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.0.0"
+  },
+  "keywords": [
+    "opencode",
+    "plugin",
+    "wecom",
+    "wechat-work",
+    "notification",
+    "notify"
+  ],
+  "license": "MIT"
+}
