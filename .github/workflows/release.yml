@@ -6,7 +6,7 @@ on:
       - "v*"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   publish:
@@ -31,3 +31,24 @@ jobs:
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Build tarball for GitHub Release
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p "/tmp/opencode-wecom-ping/src"
+          cp src/index.js "/tmp/opencode-wecom-ping/src/"
+          cp package.json "/tmp/opencode-wecom-ping/"
+          cp README.md "/tmp/opencode-wecom-ping/"
+          cp LICENSE "/tmp/opencode-wecom-ping/" 2>/dev/null || true
+          tar czf "opencode-wecom-ping-${VERSION}.tar.gz" -C /tmp opencode-wecom-ping
+
+      - name: Create GitHub Release with tarball
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" \
+            "opencode-wecom-ping-${VERSION}.tar.gz" \
+            --repo "${{ github.repository }}" \
+            --title "v${VERSION}" \
+            --generate-notes
