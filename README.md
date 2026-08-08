@@ -37,16 +37,17 @@ OpenCode 的插件机制**原生支持本地路径**，无需 `npm install`。�
 }
 ```
 
-或使用绝对路径（Windows）：
+或使用绝对路径（Windows，请替换为你自己的路径）：
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["D:/WorkDev/MyShare/opencode-wecom-notify/src/index.js"]
+  "plugin": ["C:/your-path/opencode-wecom-notify/src/index.js"]
 }
 ```
 
-> 💡 `file:` / `.` 开头 / 绝对路径（含 `C:\` 盘符）均被识别为本地路径插件，加载时直接读取源码，**不会**走 npm 安装。
+> 💡 `file:` / `.` 开头 / 绝对路径均被识别为本地路径插件，加载时直接读取源码，**不会**走 npm 安装。
+> ⚠️ 绝对路径会暴露你的本地目录结构，若在意隐私，推荐用**方式一（复制到全局插件目录）**或下面的相对路径。
 
 ### 方式四：npm 包（发布后）
 
