@@ -124,13 +124,50 @@ WECOM_BOT_KEY=你的群机器人key
 
 > 🔒 密钥查找顺序固定为上述优先级，任一命中即生效；全未命中则静默跳过推送。
 
+## 🔧 工作原理
+
+```
+用户消息 → chat.message hook（三入口门控）
+             ├─ 入口① input.agent === "wecom-notify"  → 启用本会话
+             ├─ 入口② 文本含 /wecom-notify             → 启用本会话
+             └─ 入口③ 文本含 微信/wecom               → 启用本会话
+                               │
+                 enabled.add(sessionID)（会话内持续生效，无需每次开启）
+                               │
+server 事件 → event hook（仅启用过的会话）
+             ├─ session.idle       → 推送 ✅ 回复完成
+             ├─ session.error      → 推送 ⚠️ 会话出错
+             └─ permission.asked   → 推送 🔔 需要权限确认
+```
+
+- 门控状态为**会话级**：命中入口后，该会话后续所有相关事件都会推送，直到会话结束，无需每次重复开启。
+- 去重：`session.idle` 按「最后一条 assistant 消息 id」去重，同一回复只通知一次，避免 ralph-loop / ebuilder 自动循环刷屏。
+
 ## 🧪 本地验证
+
+**1. 真实发送测试**（会真的发一条到群）：
 
 ```bash
 node scripts/send-test.js "测试消息"
 ```
 
 > Windows 终端直接 `curl` 发送中文可能乱码（GBK 编码问题），本脚本使用 Node `fetch`（UTF-8）规避，请用它验证。
+
+**2. 链路自动化测试**（不真实发送，拦截 fetch）：
+
+```bash
+npm test
+# 或
+node scripts/test-flow.js
+```
+
+覆盖 12 组用例：三入口门控、默认静默、同轮去重、`session.error`、`permission.asked`、无效事件 `permission.updated` 忽略、缺失 sessionID 静默等，共 18 项断言。
+
+## 💡 兼容性说明
+
+- **CLI / TUI / 桌面版均可用**：`session.idle`、`session.error`、`permission.asked` 是 OpenCode **server 层**统一发布的事件（见 `packages/schema/src/session-status-event.ts`、`packages/schema/src/v1/permission.ts`），与前端界面无关。桌面版用 `session.idle` 弹系统通知，CLI 下它同样触发——本插件正是补上 CLI 无通知 UI 的短板。
+- **`session.idle` 已标记 deprecated**（新事件为 `session.status`，含 `status.type: "idle"`），但官方**仍持续发布**它（桌面通知、ralph-loop 自动续写等均依赖它），因此当前可放心监听。
+- **`permission.updated` 不是有效事件**（仅存在于生成类型 `types.gen.ts` 的残留），有效事件为 `permission.asked`（AI 请求权限）与 `permission.replied`（用户已回复）。本插件只监听 `permission.asked`。
 
 ## 📱 通知内容示例
 

@@ -13,7 +13,7 @@
     "src/"
   ],
   "scripts": {
-    "test": "node --check src/index.js"
+    "test": "node --check src/index.js && node scripts/test-flow.js"
   },
   "peerDependencies": {
     "@opencode-ai/plugin": ">=1.0.0"
