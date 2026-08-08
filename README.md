@@ -1,4 +1,4 @@
-# 🔔 opencode-wecom-notify
+# 🔔 opencode-wecom-ping
 
 OpenCode 插件：当对话出现新状态时，通过**企业微信群机器人**实时推送到手机微信。
 
@@ -48,7 +48,7 @@ OpenCode 的插件机制**原生支持本地路径**，无需 `npm install`。�
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["./opencode-wecom-notify/src/index.js"]
+  "plugin": ["./opencode-wecom-ping/src/index.js"]
 }
 ```
 
@@ -57,20 +57,24 @@ OpenCode 的插件机制**原生支持本地路径**，无需 `npm install`。�
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["C:/your-path/opencode-wecom-notify/src/index.js"]
+  "plugin": ["C:/your-path/opencode-wecom-ping/src/index.js"]
 }
 ```
 
 > 💡 `file:` / `.` 开头 / 绝对路径均被识别为本地路径插件，加载时直接读取源码，**不会**走 npm 安装。
 > ⚠️ 绝对路径会暴露你的本地目录结构，若在意隐私，推荐用**方式一（复制到全局插件目录）**或下面的相对路径。
 
-### 方式四：npm 包（发布后）
+### 方式四：npm 包
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
   "plugin": ["opencode-wecom-ping"]
 }
+```
+
+```
+npm install -g opencode-wecom-ping
 ```
 
 ## ⚙️ 配置

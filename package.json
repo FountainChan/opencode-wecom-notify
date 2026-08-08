@@ -21,7 +21,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/FountainChan/opencode-wecom-notify.git"
+    "url": "https://github.com/FountainChan/opencode-wecom-ping.git"
   },
   "publishConfig": {
     "access": "public"
