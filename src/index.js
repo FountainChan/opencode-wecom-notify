@@ -1,18 +1,62 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { fileURLToPath } from "url";
 
 // ─── 常量与配置 ──────────────────────────────────────────────
 
-const DEFAULT_KEY = "";
 const MAX_CONTENT = 500; // 消息摘要最大长度
 const WEBHOOK_URL = (key) =>
   `https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=${encodeURIComponent(key)}`;
 
+// ─── 密钥读取：环境变量 WECOM_BOT_KEY → 工作目录 .env → 插件目录 .env ──
+
+function parseDotEnv(text = "") {
+  const key = {};
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const m = trimmed.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+    if (!m) continue;
+    let value = m[2].trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    key[m[1]] = value;
+  }
+  return key;
+}
+
+function loadEnvFile(file) {
+  try {
+    return parseDotEnv(fs.readFileSync(file, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function loadWecomKey() {
+  if (process.env.WECOM_BOT_KEY) return process.env.WECOM_BOT_KEY;
+
+  const candidates = [];
+  try {
+    candidates.push(path.join(process.cwd(), ".env"));
+  } catch {}
+  try {
+    candidates.push(path.join(path.dirname(fileURLToPath(import.meta.url)), ".env"));
+  } catch {}
+
+  for (const file of candidates) {
+    const env = loadEnvFile(file);
+    if (env.WECOM_BOT_KEY) return env.WECOM_BOT_KEY;
+  }
+  return "";
+}
+
 // ─── 企业微信群机器人 ────────────────────────────────────────
 
 async function sendWecom(content) {
-  const key = process.env.WECOM_BOT_KEY || DEFAULT_KEY;
+  const key = loadWecomKey();
   if (!key) return;
   try {
     const res = await fetch(WEBHOOK_URL(key), {
