@@ -9,6 +9,10 @@ const MAX_CONTENT = 500; // 消息摘要最大长度
 const WEBHOOK_URL = (key) =>
   `https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=${encodeURIComponent(key)}`;
 
+// 三条入口的启用开关
+const NOTIFY_AGENT = "wecom-notify"; // 入口1：指定 agent 才通知
+const NOTIFY_KEYWORDS = ["微信", "wecom", "wecom-notify"]; // 入口3：对话中明确提到才通知
+
 // ─── 密钥读取：环境变量 WECOM_BOT_KEY → 工作目录 .env → 插件目录 .env ──
 
 function parseDotEnv(text = "") {
@@ -114,21 +118,112 @@ async function getLastAssistantMessage(client, sessionID) {
   }
 }
 
+// ─── 命令定义与配置同步（入口2：/wecom-notify）────────────────
+
+function getCommands() {
+  return {
+    "wecom-notify": {
+      description: "(wecom-notify) 开启本会话的微信通知：回复完成/出错/权限确认时推送企业微信",
+      template: `<command-instruction>
+You are now in WECOM NOTIFY mode. This session will send WeChat Work notifications when the assistant finishes replying, encounters an error, or asks for permission.
+Proceed with the task normally.
+</command-instruction>
+
+<user-task>
+$ARGUMENTS
+</user-task>`,
+      argumentHint: '"task description"',
+    },
+  };
+}
+
+function syncCommandsToFile(configDir) {
+  const commands = getCommands();
+  const configFilePath = path.join(configDir, "opencode.json");
+  try {
+    let parsed = {};
+    try {
+      parsed = JSON.parse(fs.readFileSync(configFilePath, "utf-8"));
+    } catch {}
+
+    const existing = parsed.command || {};
+
+    // 移除过期的 wecom-notify 命令
+    for (const key of Object.keys(existing)) {
+      if (existing[key]?.__cc_source === "wecom-notify") {
+        delete existing[key];
+      }
+    }
+
+    // 注入最新命令
+    for (const [name, def] of Object.entries(commands)) {
+      existing[name] = { ...def, __cc_source: "wecom-notify" };
+    }
+
+    parsed.command = existing;
+    fs.writeFileSync(configFilePath, JSON.stringify(parsed, null, 2), "utf-8");
+    console.log(`[wecom-notify] Synced ${Object.keys(commands).length} command(s) to opencode.json`);
+  } catch (e) {
+    console.error(`[wecom-notify] Failed to sync commands:`, e.message);
+  }
+}
+
 // ─── 插件 ────────────────────────────────────────────────────
 
 export default async function wecomNotifyPlugin({ client }) {
+  // 已启用通知的会话 ID（仅入口命中后加入，会话内持续生效）
+  const enabled = new Set();
   // 去重：sessionID -> 已通知的最后一条 assistant 消息 id
   const notified = new Map();
+
+  // 同步命令到 opencode.json，供桌面端 UI 自动补全
+  const configDir = path.join(os.homedir(), ".config", "opencode");
+  try {
+    syncCommandsToFile(configDir);
+  } catch {}
 
   return {
     name: "opencode-wecom-notify",
 
-    // —— 回复完成 ——
-    event: async ({ event }) => {
-      if (event.type === "session.idle") {
-        const sessionID = event.properties.sessionID;
-        if (!sessionID) return;
+    // 注入 /wecom-notify 命令（入口2）
+    config: async (inputConfig) => {
+      const existing = inputConfig.command || {};
+      inputConfig.command = { ...existing, ...getCommands() };
+    },
 
+    // 三入口门控：命中任一入口即启用本会话通知
+    "chat.message": async (input, output) => {
+      const parts = input.parts || output?.parts || [];
+      const text = extractText(parts);
+
+      // 入口2：/wecom-notify 命令
+      if (/\/wecom-notify/i.test(text)) {
+        enabled.add(input.sessionID);
+        console.log(`[wecom-notify] 已通过命令启用通知 (session=${input.sessionID})`);
+        return;
+      }
+
+      // 入口1：选定 wecom-notify agent
+      if (input.agent === NOTIFY_AGENT) {
+        enabled.add(input.sessionID);
+        return;
+      }
+
+      // 入口3：对话中明确提到"微信"/"wecom"
+      const lower = text.toLowerCase();
+      if (NOTIFY_KEYWORDS.some((kw) => lower.includes(kw.toLowerCase()))) {
+        enabled.add(input.sessionID);
+        console.log(`[wecom-notify] 检测到通知意图，已启用 (session=${input.sessionID})`);
+      }
+    },
+
+    event: async ({ event }) => {
+      const sessionID = event.properties?.sessionID;
+      // 门控：未启用通知的会话一律静默
+      if (!sessionID || !enabled.has(sessionID)) return;
+
+      // —— 回复完成 ——
+      if (event.type === "session.idle") {
         const last = await getLastAssistantMessage(client, sessionID);
         if (!last || !last.info) return;
 
@@ -144,19 +239,20 @@ export default async function wecomNotifyPlugin({ client }) {
 
       // —— 出错 ——
       if (event.type === "session.error") {
-        const sessionID = event.properties.sessionID;
         const title = sessionID ? await getSessionTitle(client, sessionID) : "";
         const content = `[opencode] ⚠️ 会话出错\n${title ? "会话：" + truncate(title, 80) + "\n" : ""}${truncate(errText(event.properties.error))}`;
         await sendWecom(content);
         return;
       }
 
-      // —— 需要权限确认 ——
-      if (event.type === "permission.updated" || event.type === "permission.asked") {
+      // —— 需要权限确认 ——（permission.asked 为有效事件；permission.updated 不存在）
+      if (event.type === "permission.asked") {
         const p = event.properties || {};
-        const sessionID = p.sessionID;
         const title = sessionID ? await getSessionTitle(client, sessionID) : "";
-        const content = `[opencode] 🔔 需要权限确认\n${title ? "会话：" + truncate(title, 80) + "\n" : ""}${truncate(p.title || p.pattern || "(无描述)")}`;
+        const detail = p.permission
+          ? `${p.permission}${p.patterns?.length ? " " + p.patterns.join(", ") : ""}`
+          : (p.patterns?.length ? p.patterns.join(", ") : "(无描述)");
+        const content = `[opencode] 🔔 需要权限确认\n${title ? "会话：" + truncate(title, 80) + "\n" : ""}${truncate(detail)}`;
         await sendWecom(content);
       }
     },

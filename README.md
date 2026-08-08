@@ -2,14 +2,29 @@
 
 OpenCode 插件：当对话出现新状态时，通过**企业微信群机器人**实时推送到手机微信。
 
-## ✨ 功能
+**默认静默**，只有通过以下三种入口**显式启用**后，本会话才推送通知。
+
+## ✨ 三种启用方式
+
+| 入口 | 方式 | 说明 |
+|---|---|---|
+| ① 指定 Agent | 切换到 `wecom-notify` agent | 该 agent 下的会话自动启用通知 |
+| ② 斜杠命令 | 输入 `/wecom-notify` | 在当前会话开启通知（含 `$ARGUMENTS` 任务描述） |
+| ③ 对话关键词 | 对话中明确提到「微信」「wecom」 | 检测到通知意图后自动启用本会话通知 |
+
+启用后推送的事件：
 
 | 触发事件 | 推送内容 |
 |---|---|
 | `session.idle`（回复完成） | 会话标题 + 最后一条回复摘要 |
 | `session.error`（会话出错） | 会话标题 + 错误信息 |
-| `permission.updated` / `permission.asked`（需要权限确认） | 会话标题 + 权限请求描述 |
+| `permission.asked`（需要权限确认） | 会话标题 + 权限请求描述 |
 
+> ⚠️ `permission.updated` 不是 OpenCode 的有效事件（仅存在于生成类型残留中），实际有效事件为 `permission.asked` / `permission.replied`。本插件监听 `permission.asked`。
+
+## ✨ 特性
+
+- 🚫 默认静默：未命中三入口的会话一律不推送，避免刷屏
 - 🚫 内置去重：同一轮回复只通知一次，避免 ralph-loop / ebuilder 等自动循环刷屏
 - 📦 零依赖：仅使用 Node/Bun 原生 `fetch`
 - 🔐 密钥不硬编码：通过环境变量或 `.env` 文件注入，可安全公开仓库
@@ -59,6 +74,27 @@ OpenCode 的插件机制**原生支持本地路径**，无需 `npm install`。�
 ```
 
 ## ⚙️ 配置
+
+### 0. 添加 wecom-notify Agent（入口①）
+
+在 `opencode.json` 的 `agent` 中参考以下配置（也可在配置中心勾选使用）：
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "wecom-notify": {
+      "mode": "primary",
+      "description": "Agent that sends WeChat Work notifications when replies complete, errors occur, or permission is requested. Switch to this agent to enable notifications.",
+      "prompt": "You are wecom-notify, an agent that notifies the user via WeChat Work (企业微信) when work finishes or needs attention.\n\nRULES:\n- Work on the task normally\n- When the reply completes, errors, or a permission request is pending, the WeChat notification plugin handles delivery automatically\n- Do NOT ask the user whether notifications were received\n- When the ENTIRE task is FULLY complete and verified, output: <promise>DONE</promise>\n- Output the promise ONLY ONCE when truly done",
+      "color": "#07C160",
+      "steps": 500,
+      "options": {},
+      "permission": {}
+    }
+  }
+}
+```
 
 ### 1. 创建企业微信群机器人
 
