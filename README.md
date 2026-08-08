@@ -69,7 +69,7 @@ OpenCode 的插件机制**原生支持本地路径**，无需 `npm install`。�
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["opencode-wecom-notify"]
+  "plugin": ["opencode-wecom-ping"]
 }
 ```
 

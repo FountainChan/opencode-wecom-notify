@@ -1,8 +1,8 @@
 {
-  "name": "opencode-wecom-notify",
+  "name": "opencode-wecom-ping",
   "version": "1.0.0",
   "type": "module",
-  "description": "OpenCode 插件：对话状态实时推送企业微信（回复完成 / 出错 / 权限请求）",
+  "description": "OpenCode plugin: push WeChat Work (企业微信) notifications on reply complete / error / permission request",
   "main": "src/index.js",
   "exports": {
     ".": {
@@ -13,7 +13,18 @@
     "src/"
   ],
   "scripts": {
-    "test": "node --check src/index.js && node scripts/test-flow.js"
+    "test": "node --check src/index.js && node scripts/test-flow.js",
+    "prepublishOnly": "npm test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FountainChan/opencode-wecom-notify.git"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "peerDependencies": {
     "@opencode-ai/plugin": ">=1.0.0"
@@ -24,7 +35,9 @@
     "wecom",
     "wechat-work",
     "notification",
-    "notify"
+    "notify",
+    "ping",
+    "alert"
   ],
   "license": "MIT"
 }
