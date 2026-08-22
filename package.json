@@ -1,6 +1,6 @@
 {
   "name": "opencode-wecom-ping",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "description": "OpenCode plugin: push WeChat Work (企业微信) notifications on reply complete / error / permission request",
   "main": "src/index.js",
