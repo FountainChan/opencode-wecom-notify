@@ -13,7 +13,7 @@
     "src/"
   ],
   "scripts": {
-    "test": "node --check src/index.js && node scripts/test-flow.js",
+    "test": "node --check src/index.js && node --check scripts/send-test.js && node scripts/test-flow.js",
     "prepublishOnly": "npm test"
   },
   "engines": {
