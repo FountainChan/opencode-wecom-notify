@@ -13,22 +13,22 @@ const WEBHOOK_URL = (key) =>
 const NOTIFY_AGENT = "wecom-notify"; // 入口1：指定 agent 才通知
 const NOTIFY_KEYWORDS = ["微信", "wecom", "wecom-notify"]; // 入口3：对话中明确提到才通知
 
-// ─── 密钥读取：环境变量 WECOM_BOT_KEY → 工作目录 .env → 插件目录 .env ──
+// ─── 密钥读取：环境变量 → OpenCode 全局配置 → 工作目录 → 插件目录 ──
 
 function parseDotEnv(text = "") {
-  const key = {};
+  const values = {};
   for (const line of text.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
-    const m = trimmed.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
-    if (!m) continue;
-    let value = m[2].trim();
+    const match = trimmed.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+    if (!match) continue;
+    let value = match[2].trim();
     if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
       value = value.slice(1, -1);
     }
-    key[m[1]] = value;
+    values[match[1]] = value;
   }
-  return key;
+  return values;
 }
 
 function loadEnvFile(file) {
@@ -42,17 +42,14 @@ function loadEnvFile(file) {
 function loadWecomKey() {
   if (process.env.WECOM_BOT_KEY) return process.env.WECOM_BOT_KEY;
 
-  const candidates = [];
-  try {
-    candidates.push(path.join(process.cwd(), ".env"));
-  } catch {}
-  try {
-    candidates.push(path.join(path.dirname(fileURLToPath(import.meta.url)), ".env"));
-  } catch {}
-
+  const candidates = [
+    path.join(os.homedir(), ".config", "opencode", ".env"),
+    path.join(process.cwd(), ".env"),
+    path.join(path.dirname(fileURLToPath(import.meta.url)), ".env"),
+  ];
   for (const file of candidates) {
-    const env = loadEnvFile(file);
-    if (env.WECOM_BOT_KEY) return env.WECOM_BOT_KEY;
+    const value = loadEnvFile(file).WECOM_BOT_KEY;
+    if (value) return value;
   }
   return "";
 }
@@ -137,6 +134,21 @@ $ARGUMENTS
   };
 }
 
+function getNotifyAgent() {
+  return {
+    mode: "primary",
+    description: "Agent that sends WeChat Work notifications when replies complete, errors occur, or permission is requested.",
+    prompt: `You are wecom-notify, an agent that notifies the user via WeChat Work when work finishes or needs attention.
+
+RULES:
+- Work on the task normally
+- The notification plugin handles delivery automatically
+- Do NOT ask whether notifications were received`,
+    color: "#07C160",
+    steps: 500,
+  };
+}
+
 function syncCommandsToFile(configDir) {
   const commands = getCommands();
   const configFilePath = path.join(configDir, "opencode.json");
@@ -185,8 +197,19 @@ export default async function wecomNotifyPlugin({ client }) {
   return {
     name: "opencode-wecom-notify",
 
-    // 注入 /wecom-notify 命令（入口2）
+    // 注入 agent（入口1）与 /wecom-notify 命令（入口2）
     config: async (inputConfig) => {
+      const existingAgent = inputConfig.agent?.[NOTIFY_AGENT] || {};
+      inputConfig.agent = {
+        ...(inputConfig.agent || {}),
+        [NOTIFY_AGENT]: {
+          ...getNotifyAgent(),
+          ...existingAgent,
+          mode: "primary",
+          hidden: false,
+        },
+      };
+
       const existing = inputConfig.command || {};
       inputConfig.command = { ...existing, ...getCommands() };
     },

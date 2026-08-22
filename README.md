@@ -37,6 +37,8 @@ OpenCode 的插件机制**原生支持本地路径**，无需 `npm install`。�
 
 将仓库内的 `src/index.js` 复制为 `~/.config/opencode/plugins/wecom-notify.js`。
 
+> 五种安装方式只能选择一种。不要同时通过自动发现目录、`plugin` 数组或 npm 加载插件，也不要同时安装全局版和项目版，否则会创建多个插件实例，造成重复通知或会话状态不一致。
+
 ### 方式二：项目级
 
 将 `src/index.js` 放入项目 `.opencode/plugins/wecom-notify.js`。
@@ -91,22 +93,19 @@ npm install https://github.com/FountainChan/opencode-wecom-ping/releases/downloa
 
 ## ⚙️ 配置
 
-### 0. 添加 wecom-notify Agent（入口①）
+### 0. wecom-notify Agent（入口①）
 
-在 `opencode.json` 的 `agent` 中参考以下配置（也可在配置中心勾选使用）：
+插件会通过 `config` hook 自动注册 `wecom-notify` primary agent，无需手工添加。安装或升级插件后必须**完全退出并重启 OpenCode**，运行中的实例不会热加载新 Agent。
+
+如需指定模型或覆盖提示词，可在 `opencode.json` 中只写需要覆盖的字段：
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
   "agent": {
     "wecom-notify": {
-      "mode": "primary",
-      "description": "Agent that sends WeChat Work notifications when replies complete, errors occur, or permission is requested. Switch to this agent to enable notifications.",
-      "prompt": "You are wecom-notify, an agent that notifies the user via WeChat Work (企业微信) when work finishes or needs attention.\n\nRULES:\n- Work on the task normally\n- When the reply completes, errors, or a permission request is pending, the WeChat notification plugin handles delivery automatically\n- Do NOT ask the user whether notifications were received\n- When the ENTIRE task is FULLY complete and verified, output: <promise>DONE</promise>\n- Output the promise ONLY ONCE when truly done",
-      "color": "#07C160",
-      "steps": 500,
-      "options": {},
-      "permission": {}
+      "model": "你的-provider/你的-model",
+      "description": "自定义描述"
     }
   }
 }
@@ -126,13 +125,15 @@ export WECOM_BOT_KEY="你的群机器人key"
 
 **b) `.env` 文件**
 
-在**工作目录**（运行 opencode 的目录）或**插件所在目录**创建 `.env`：
+推荐在 OpenCode 全局配置目录创建 `~/.config/opencode/.env`：
 
 ```bash
 WECOM_BOT_KEY=你的群机器人key
 ```
 
-优先级：环境变量 > 工作目录 `.env` > 插件目录 `.env`。
+也支持在**工作目录**（运行 OpenCode 的目录）或**插件所在目录**创建 `.env`。
+
+优先级：环境变量 > `~/.config/opencode/.env` > 工作目录 `.env` > 插件目录 `.env`。
 
 **c) 系统级配置**（Windows）
 
@@ -177,7 +178,7 @@ npm test
 node scripts/test-flow.js
 ```
 
-覆盖 12 组用例：三入口门控、默认静默、同轮去重、`session.error`、`permission.asked`、无效事件 `permission.updated` 忽略、缺失 sessionID 静默等，共 18 项断言。
+覆盖 Agent 自动注册与用户覆盖、完整密钥优先级、三入口门控、默认静默、同轮去重、`session.error`、`permission.asked`、无效事件 `permission.updated` 忽略、缺失 sessionID 静默等。
 
 ## 💡 兼容性说明
 
